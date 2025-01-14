@@ -2,10 +2,15 @@
 const int pulsePins[8] = {A0, A2, A4, A6, A8, A10, A12, A14};  // Pinos dos Pulse Sensors
 const int gsrPins[8] = {A1, A3, A5, A7, A9, A11, A13, A15};    // Pinos para leitura dos sensores GSR
 
-long lastBeats[8] = {0};  // Timestamps dos últimos batimentos detectados para cada sensor
-float beatsPerMinute[8] = {0};  // BPM calculado para cada sensor
-int lastPulseValues[8] = {0};  // Armazena o último valor do sensor para comparação
-int thresholds[8] = {20};  // Ajustável dinamicamente para cada sensor
+long lastBeats[8] = {0};          // Timestamps dos últimos batimentos detectados para cada sensor
+float beatsPerMinute[8] = {0};    // BPM calculado para cada sensor
+int lastPulseValues[8] = {0};     // Armazena o último valor do sensor para comparação
+int thresholds[8] = {20};         // Ajustável dinamicamente para cada sensor
+int lastGSRValues[8] = {0};       // Últimos valores de GSR para suavização
+const int pulseMinThreshold = 50; // Valor mínimo esperado para BPM
+const int pulseMaxThreshold = 150; // Valor máximo esperado para BPM
+const int gsrMinThreshold = 450;  // Faixa válida mínima de GSR
+const int gsrMaxThreshold = 750;  // Faixa válida máxima de GSR
 
 void setup() {
   Serial.begin(115200);
@@ -18,8 +23,8 @@ void loop() {
     int gsrValue = analogRead(gsrPins[i]);
 
     // Suavização do GSR (Média Móvel Simples)
-    gsrValue = (gsrValue + lastPulseValues[i]) / 2;
-    lastPulseValues[i] = gsrValue;
+    gsrValue = (gsrValue + lastGSRValues[i]) / 2;
+    lastGSRValues[i] = gsrValue;
 
     // Processa o batimento cardíaco para cada sensor
     int pulseValue = analogRead(pulsePins[i]);
@@ -30,16 +35,27 @@ void loop() {
       lastBeats[i] = millis();
 
       beatsPerMinute[i] = 60.0 / (delta / 1000.0);
-      beatsPerMinute[i] = constrain(beatsPerMinute[i], 20, 255);  // Filtro de valores realistas
+      beatsPerMinute[i] = constrain(beatsPerMinute[i], pulseMinThreshold, pulseMaxThreshold);  // Limita BPM a valores realistas
 
-      // Exibe os dados para cada pessoa
-      Serial.print("Pessoa ");
-      Serial.print(i + 1);
-      Serial.print(" - BPM: ");
-      Serial.print(beatsPerMinute[i]);
-      Serial.print(", GSR: ");
-      Serial.println(gsrValue);
+      // Validação da faixa de GSR
+      if (gsrValue >= gsrMinThreshold && gsrValue <= gsrMaxThreshold) {
+        // Exibe os dados apenas se ambos os valores forem válidos
+        Serial.print("Pessoa ");
+        Serial.print(i + 1);
+        Serial.print(" - BPM: ");
+        Serial.print(beatsPerMinute[i]);
+        Serial.print(", GSR: ");
+        Serial.println(gsrValue);
+      } else {
+        // GSR fora da faixa esperada
+        Serial.print("Pessoa ");
+        Serial.print(i + 1);
+        Serial.println(" - GSR fora da faixa válida.");
+      }
     }
+
+    // Atualiza o último valor de pulso
+    lastPulseValues[i] = pulseValue;
   }
 
   delay(20);  // Pequena pausa para evitar sobrecarga de processamento
