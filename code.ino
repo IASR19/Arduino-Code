@@ -4,14 +4,13 @@ const int gsrPins[8] = {A1, A3, A5, A7, A9, A11, A13, A15};    // Pinos para lei
 
 long lastBeats[8] = {0};                // Timestamps dos últimos batimentos detectados
 float beatsPerMinute[8] = {0};          // BPM calculado para cada sensor
-int pulseValues[8] = {0};               // Últimos valores lidos do pulso
 int lastPulseValues[8] = {0};           // Últimos valores para verificar variação
 bool sensorActive[8] = {false};         // Indica se o sensor está ativo
 const int INACTIVITY_TIMEOUT = 2000;    // Tempo limite para marcar sensor como inativo (ms)
 const int BPM_MIN = 50;                 // Limite mínimo de BPM para valores realistas
 const int BPM_MAX = 120;                // Limite máximo de BPM para valores realistas
-const int GSR_MIN = 400;                // Limite mínimo para GSR
-const int GSR_MAX = 750;                // Limite máximo para GSR
+const int GSR_MIN = 450;                // Limite mínimo para GSR
+const int GSR_MAX = 700;                // Limite máximo para GSR
 
 void setup() {
   Serial.begin(115200);
@@ -46,7 +45,7 @@ void loop() {
       // Leitura do valor GSR
       int gsrValue = analogRead(gsrPins[i]);
 
-      // Valida faixa de GSR
+      // Verifica se o GSR está dentro da faixa válida
       if (gsrValue >= GSR_MIN && gsrValue <= GSR_MAX) {
         // Exibe os dados para cada pessoa ativa
         Serial.print("Pessoa ");
@@ -56,12 +55,10 @@ void loop() {
         Serial.print(", GSR: ");
         Serial.println(gsrValue);
       } else {
-        Serial.print("Pessoa ");
-        Serial.print(i + 1);
-        Serial.println(" - GSR fora da faixa esperada.");
+        sensorActive[i] = false;  // Marca o canal como inativo se o GSR estiver fora da faixa
       }
     }
   }
 
-  delay(20);  // Pequena pausa para evitar sobrecarga de processamento
+  delay(1000);  // Pequena pausa para evitar sobrecarga de processamento
 }
