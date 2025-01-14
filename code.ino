@@ -5,7 +5,7 @@ const int gsrPins[8] = {A1, A3, A5, A7, A9, A11, A13, A15};    // Pinos para lei
 long lastBeats[8] = {0};  // Timestamps dos últimos batimentos detectados para cada sensor
 float beatsPerMinute[8] = {0};  // BPM calculado para cada sensor
 int lastPulseValues[8] = {0};  // Armazena o último valor do sensor para comparação
-int thresholds[8] = {20};  // Ajustável dinamicamente para cada sensor
+int thresholds[8] = {50};  // Limiar ajustável dinamicamente para cada sensor
 
 void setup() {
   Serial.begin(115200);
@@ -17,15 +17,18 @@ void loop() {
     // Leitura do valor GSR para cada pessoa
     int gsrValue = analogRead(gsrPins[i]);
 
-    // Suavização do GSR (Média Móvel Simples)
-    gsrValue = (gsrValue + lastPulseValues[i]) / 2;
+    // Suavização do GSR
+    gsrValue = (gsrValue * 0.8) + (lastPulseValues[i] * 0.2);
     lastPulseValues[i] = gsrValue;
+
+    // Filtragem de valores extremos
+    gsrValue = constrain(gsrValue, 200, 800);
 
     // Processa o batimento cardíaco para cada sensor
     int pulseValue = analogRead(pulsePins[i]);
 
     // Detecta picos com base em variação e intervalo
-    if (pulseValue - lastPulseValues[i] > thresholds[i] && millis() - lastBeats[i] > 300) {
+    if (pulseValue - lastPulseValues[i] > thresholds[i] && millis() - lastBeats[i] > 500) {
       long delta = millis() - lastBeats[i];
       lastBeats[i] = millis();
 
