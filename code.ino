@@ -2,14 +2,14 @@
 const int pulsePins[8] = {A0, A2, A4, A6, A8, A10, A12, A14};  // Pinos dos Pulse Sensors
 const int gsrPins[8] = {A1, A3, A5, A7, A9, A11, A13, A15};    // Pinos para leitura dos sensores GSR
 
-long lastBeats[8] = {0};               // Timestamps dos últimos batimentos detectados
-float beatsPerMinute[8] = {0};         // BPM calculado para cada sensor
-int lastPulseValues[8] = {0};          // Últimos valores do sensor de pulso
-int gsrHistory[8][10] = {0};           // Histórico de GSR para média móvel
-int thresholds[8] = {100};             // Threshold para detecção de picos (ajustável por sensor)
-bool sensorActive[8] = {false};        // Indica se o sensor está ativo
-const int GSR_MIN = 400;               // Limite mínimo do GSR para considerar ativo
-const int GSR_MAX = 700;               // Limite máximo do GSR para considerar ativo
+long lastBeats[8] = {0};                // Timestamps dos últimos batimentos detectados
+float beatsPerMinute[8] = {0};          // BPM calculado para cada sensor
+float bpmHistory[8][5] = {0};           // Histórico para média móvel de BPM
+int bpmIndex[8] = {0};                  // Índices do histórico para cada sensor
+bool sensorActive[8] = {false};         // Indica se o sensor está ativo
+int thresholds[8] = {550};              // Threshold inicial para detecção de picos
+const int BPM_MIN = 50;                 // Limite mínimo de BPM para valores realistas
+const int BPM_MAX = 120;                // Limite máximo de BPM para valores realistas
 
 void setup() {
   Serial.begin(115200);
@@ -18,50 +18,49 @@ void setup() {
 
 void loop() {
   for (int i = 0; i < 8; i++) {
-    // 1. Leitura do GSR
+    // Leitura do GSR
     int gsrValue = analogRead(gsrPins[i]);
 
-    // Média móvel para suavizar GSR (10 leituras)
-    for (int j = 9; j > 0; j--) {
-      gsrHistory[i][j] = gsrHistory[i][j - 1];
-    }
-    gsrHistory[i][0] = gsrValue;
-
-    int avgGSR = 0;
-    for (int j = 0; j < 10; j++) {
-      avgGSR += gsrHistory[i][j];
-    }
-    avgGSR /= 10;
-
-    // Verifica se o GSR está dentro de uma faixa plausível
-    if (avgGSR >= GSR_MIN && avgGSR <= GSR_MAX) {
-      sensorActive[i] = true;  // Marca o sensor como ativo
+    // Verifica se o GSR está ativo (entre 400 e 700)
+    if (gsrValue >= 400 && gsrValue <= 700) {
+      sensorActive[i] = true;
     } else {
-      sensorActive[i] = false; // Marca o sensor como inativo
-      beatsPerMinute[i] = 0;   // Zera o BPM para sensores inativos
-      continue;                // Ignora o restante do processamento para este sensor
+      sensorActive[i] = false;
+      beatsPerMinute[i] = 0;  // Zera BPM para sensores inativos
+      continue;               // Ignora processamento adicional
     }
 
-    // 2. Processa o batimento cardíaco (ECG)
+    // Leitura do sensor de pulso
     int pulseValue = analogRead(pulsePins[i]);
 
-    // Detecta picos (Threshold + Intervalo de Tempo)
-    if (pulseValue > thresholds[i] && millis() - lastBeats[i] > 600) {  // Intervalo mínimo de 600ms
+    // Detecta picos com base no threshold e intervalo de tempo
+    if (pulseValue > thresholds[i] && millis() - lastBeats[i] > 300) {  // Intervalo mínimo de 300ms
       long delta = millis() - lastBeats[i];
       lastBeats[i] = millis();
 
-      beatsPerMinute[i] = 60.0 / (delta / 1000.0);  // Calcula BPM
-      beatsPerMinute[i] = constrain(beatsPerMinute[i], 50, 90);  // Filtro de valores realistas
+      float bpm = 60.0 / (delta / 1000.0);  // Calcula BPM
+      if (bpm >= BPM_MIN && bpm <= BPM_MAX) {  // Verifica se o BPM está na faixa realista
+        // Armazena o BPM no histórico
+        bpmHistory[i][bpmIndex[i]] = bpm;
+        bpmIndex[i] = (bpmIndex[i] + 1) % 5;  // Atualiza índice circular
+
+        // Calcula a média móvel do BPM
+        float avgBPM = 0;
+        for (int j = 0; j < 5; j++) {
+          avgBPM += bpmHistory[i][j];
+        }
+        beatsPerMinute[i] = avgBPM / 5;  // Atualiza o BPM médio
+      }
     }
 
-    // 3. Exibe os dados para sensores ativos
+    // Exibe os dados somente para sensores ativos
     if (sensorActive[i]) {
       Serial.print("Pessoa ");
       Serial.print(i + 1);
       Serial.print(" - BPM: ");
       Serial.print(beatsPerMinute[i]);
       Serial.print(", GSR: ");
-      Serial.println(avgGSR);
+      Serial.println(gsrValue);
     }
   }
 
