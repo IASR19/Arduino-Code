@@ -24,19 +24,22 @@ void loop() {
     // Processa o batimento cardíaco para cada sensor
     int pulseValue = analogRead(pulsePins[i]);
 
+    // Remapeia o valor do ADC para BPM (50 a 150)
+    float remappedBPM = map(pulseValue, 0, 1023, 50, 150);
+
     // Detecta picos com base em variação e intervalo
     if (pulseValue - lastPulseValues[i] > thresholds[i] && millis() - lastBeats[i] > 300) {
       long delta = millis() - lastBeats[i];
       lastBeats[i] = millis();
 
-      beatsPerMinute[i] = 60.0 / (delta / 1000.0);
-      beatsPerMinute[i] = constrain(beatsPerMinute[i], 50, 150);  // Ajusta BPM para faixa realista (50 a 150)
+      beatsPerMinute[i] = remappedBPM;  // Usa o valor remapeado para BPM
+      beatsPerMinute[i] = constrain(beatsPerMinute[i], 50, 150);  // Garante que o valor fique na faixa
 
       // Ajusta o GSR para a faixa esperada (450 a 700)
       if (gsrValue < 450) gsrValue = 450;
       if (gsrValue > 700) gsrValue = 700;
 
-      // Exibe os dados ajustados para cada pessoa
+      // Exibe os dados para cada pessoa
       Serial.print("Pessoa ");
       Serial.print(i + 1);
       Serial.print(" - BPM: ");
