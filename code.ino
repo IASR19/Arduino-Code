@@ -17,16 +17,15 @@ void loop() {
     // Leitura do valor GSR para cada pessoa
     int gsrValue = analogRead(gsrPins[i]);
 
-    // Remapeia o GSR para a faixa de 450 a 750
-    int remappedGSR = map(gsrValue, 0, 1023, 450, 750);
-    remappedGSR = constrain(remappedGSR, 450, 750);  // Garante que fique na faixa
+    // Suavização do GSR (Média Móvel Simples)
+    gsrValue = (gsrValue + lastPulseValues[i]) / 2;
+    lastPulseValues[i] = gsrValue;
 
     // Processa o batimento cardíaco para cada sensor
     int pulseValue = analogRead(pulsePins[i]);
 
     // Remapeia o valor do ADC para BPM (50 a 150)
-    float remappedBPM = map(pulseValue, 0, 1023, 50, 100);
-    remappedBPM = constrain(remappedBPM, 50, 150);  // Garante que o valor fique na faixa
+    float remappedBPM = map(pulseValue, 0, 1023, 50, 150);
 
     // Detecta picos com base em variação e intervalo
     if (pulseValue - lastPulseValues[i] > thresholds[i] && millis() - lastBeats[i] > 300) {
@@ -34,6 +33,11 @@ void loop() {
       lastBeats[i] = millis();
 
       beatsPerMinute[i] = remappedBPM;  // Usa o valor remapeado para BPM
+      beatsPerMinute[i] = constrain(beatsPerMinute[i], 50, 150);  // Garante que o valor fique na faixa
+
+      // Ajusta o GSR para exibição na faixa esperada (450 a 750)
+      int remappedGSR = map(gsrValue, 0, 1023, 450, 750);
+      remappedGSR = constrain(remappedGSR, 450, 750);  // Garante que o valor fique na faixa
 
       // Exibe os dados para cada pessoa
       Serial.print("Pessoa ");
