@@ -7,6 +7,9 @@ float beatsPerMinute[8] = {0};         // BPM calculado para cada sensor
 int lastPulseValues[8] = {0};          // Últimos valores do sensor de pulso
 int gsrHistory[8][10] = {0};           // Histórico de GSR para média móvel
 int thresholds[8] = {100};             // Threshold para detecção de picos (ajustável por sensor)
+bool sensorActive[8] = {false};        // Indica se o sensor está ativo
+const int GSR_MIN = 400;               // Limite mínimo do GSR para considerar ativo
+const int GSR_MAX = 700;               // Limite máximo do GSR para considerar ativo
 
 void setup() {
   Serial.begin(115200);
@@ -30,8 +33,14 @@ void loop() {
     }
     avgGSR /= 10;
 
-    // Filtrar valores extremos para GSR
-    avgGSR = constrain(avgGSR, 400, 700);
+    // Verifica se o GSR está dentro de uma faixa plausível
+    if (avgGSR >= GSR_MIN && avgGSR <= GSR_MAX) {
+      sensorActive[i] = true;  // Marca o sensor como ativo
+    } else {
+      sensorActive[i] = false; // Marca o sensor como inativo
+      beatsPerMinute[i] = 0;   // Zera o BPM para sensores inativos
+      continue;                // Ignora o restante do processamento para este sensor
+    }
 
     // 2. Processa o batimento cardíaco (ECG)
     int pulseValue = analogRead(pulsePins[i]);
@@ -45,14 +54,16 @@ void loop() {
       beatsPerMinute[i] = constrain(beatsPerMinute[i], 50, 90);  // Filtro de valores realistas
     }
 
-    // 3. Exibe os dados para cada pessoa
-    Serial.print("Pessoa ");
-    Serial.print(i + 1);
-    Serial.print(" - BPM: ");
-    Serial.print(beatsPerMinute[i]);
-    Serial.print(", GSR: ");
-    Serial.println(avgGSR);
+    // 3. Exibe os dados para sensores ativos
+    if (sensorActive[i]) {
+      Serial.print("Pessoa ");
+      Serial.print(i + 1);
+      Serial.print(" - BPM: ");
+      Serial.print(beatsPerMinute[i]);
+      Serial.print(", GSR: ");
+      Serial.println(avgGSR);
+    }
   }
 
-  delay(20);  // Pequena pausa para evitar sobrecarga
+  delay(1000);  // Pequena pausa para evitar sobrecarga
 }
